@@ -12,10 +12,12 @@ class VideoScriptGenerator:
     - Streaming API integration
     """
     
-    def __init__(self, model: str = 'gemmascript'):
+    def __init__(self, model: str = 'gemmayt'):
         self.model = model
         self.system_prompt = """You are a professional video script generator. 
-        Generate JSON output strictly following this structure:
+        Generate a strictly formatted JSON output inside markdown triple backticks.
+        Example:
+        ```json
         {
             "topic": "Topic Name",
             "audio_script": [{
@@ -38,6 +40,7 @@ class VideoScriptGenerator:
                 "height": 576
             }]
         }
+        ```
         Ensure audio and visual timestamps are synchronized."""
     
     def _generate_content(self, prompt: str) -> str:
@@ -45,7 +48,7 @@ class VideoScriptGenerator:
             model=self.model,
             messages=[{'role': 'system', 'content': self.system_prompt},
                       {'role': 'user', 'content': prompt}],
-            stream=True
+            stream=True,
         )
         
         response_text = ""
@@ -56,23 +59,29 @@ class VideoScriptGenerator:
     
     def _extract_json(self, raw_text: str) -> Dict:
         try:
-            return json.loads(raw_text)
-        except json.JSONDecodeError:
-            try:
-                json_match = re.search(r'```json\n(.*?)\n```', raw_text, re.DOTALL)
-                if json_match:
-                    return json.loads(json_match.group(1))
+            json_match = re.search(r'```json\n(.*?)\n```', raw_text, re.DOTALL)
+            if json_match:
+                extracted_json = json_match.group(1)
+            else:
                 json_match = re.search(r'\{.*\}', raw_text, re.DOTALL)
-                return json.loads(json_match.group()) if json_match else {}
-            except Exception as e:
-                raise ValueError(f"JSON extraction failed: {str(e)}")
+                extracted_json = json_match.group() if json_match else ""
+            
+            # Ensure extracted JSON is properly formatted
+            extracted_json = extracted_json.strip()
+            if not extracted_json.endswith('}'):  # Handle incomplete JSON
+                raise ValueError("Extracted JSON appears incomplete.")
+            
+            return json.loads(extracted_json)
+        except Exception as e:
+            raise ValueError(f"JSON extraction failed: {str(e)}\nRaw output:\n{raw_text}")
     
     def generate_script(self, topic: str, duration: int = 60, key_points: Optional[List[str]] = None) -> Dict:
         prompt = f"""Generate a {duration}-second video script about: {topic}
         Key Points: {key_points or 'Comprehensive coverage'}
         - At least {duration//5} segments (5-second intervals)
         - Engaging and scientifically accurate narration
-        - Cinematic visuals with detailed prompts"""
+        - Cinematic visuals with detailed prompts
+        Provide the output in proper JSON format as per system instructions."""
         
         raw_output = self._generate_content(prompt)
         return self._extract_json(raw_output)
@@ -81,7 +90,8 @@ class VideoScriptGenerator:
         prompt = f"""Refine this script based on feedback:
         Existing Script: {json.dumps(existing_script, indent=2)}
         Feedback: {feedback}
-        Maintain structure, valid parameters, and timestamp continuity."""
+        Maintain structure, valid parameters, and timestamp continuity.
+        Provide the output in proper JSON format as per system instructions."""
         
         raw_output = self._generate_content(prompt)
         return self._extract_json(raw_output)
