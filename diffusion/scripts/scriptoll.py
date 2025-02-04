@@ -123,6 +123,6 @@ if __name__ == "__main__":
                 full_refined_script += chunk
             
             refined_json = generator._extract_json(full_refined_script)
-            generator.save_script(refined_json, "refined_hotwheels_script.json")
+            generator.save_script(refined_json, "scripts.json")
     except Exception as e:
         print(f"Script generation failed: {str(e)}")
