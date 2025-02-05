@@ -13,12 +13,13 @@ class VideoScriptGenerator:
     - Live script generation
     """
     
-    def __init__(self, model: str = 'llama3.1'):
+    def __init__(self, model: str = 'llamayt'):
         self.model = model
         self.system_prompt = """You are a professional video script generator. 
         Generate JSON output strictly following this structure:
         {
             "topic": "Topic Name",
+            "description": "description of the video",
             "audio_script": [{
                 "timestamp": "00:00",
                 "text": "Narration text",
@@ -28,17 +29,132 @@ class VideoScriptGenerator:
                 "emotion": "neutral|serious|dramatic|mysterious|informative"
             }],
             "visual_script": [{
-                "timestamp": "00:00",
+                "timestamp_start": "00:00",
+                "timestamp_end": "00:05",
                 "prompt": "Detailed Stable Diffusion prompt",
                 "negative_prompt": "Low quality elements to avoid",
                 "style": "realistic|cinematic|hyperrealistic|fantasy|scientific",
-                "guidance_scale": 7.0-12.0,
+                "guidance_scale": 11.0-14.0,
                 "steps": 50-100,
-                "seed": 6-7 digit integer,
+                "seed": 6 digit integer,
                 "width": 1024,
                 "height": 576
             }]
         }
+        
+        ex1_json = {
+  "topic": "How to Drive a Car",
+  "description": "A step-by-step guide on driving a car safely and confidently.",
+  "audio_script": [
+      {
+      "timestamp": "00:00",
+      "text": "Driving a car is an essential skill that requires focus, patience, and practice.",
+      "speaker": "narrator_male",
+      "speed": 1.0,
+      "pitch": 1.0,
+      "emotion": "neutral"
+      },
+      {
+      "timestamp": "00:05",
+      "text": "Before starting the car, adjust your seat, mirrors, and ensure your seatbelt is fastened.",
+      "speaker": "narrator_female",
+      "speed": 1.0,
+      "pitch": 1.1,
+      "emotion": "informative"
+      },
+      {
+      "timestamp": "00:15",
+      "text": "Turn the ignition key or press the start button while keeping your foot on the brake.",
+      "speaker": "narrator_male",
+      "speed": 0.95,
+      "pitch": 1.0,
+      "emotion": "calm"
+      },
+      {
+      "timestamp": "00:20",
+      "text": "Slowly release the brake and gently press the accelerator to move forward.",
+      "speaker": "narrator_female",
+      "speed": 1.1,
+      "pitch": 1.0,
+      "emotion": "guiding"
+      },
+      {
+      "timestamp": "00:25",
+      "text": "Use the steering wheel to navigate while maintaining a steady speed.",
+      "speaker": "narrator_male",
+      "speed": 1.0,
+      "pitch": 1.0,
+      "emotion": "calm"
+      }
+  ],
+  "visual_script": [
+      {
+      "timestamp_start": "00:00",
+      "timestamp_end": "00:05",
+      "prompt": "A person sitting in the driver's seat of a modern car, gripping the steering wheel and looking ahead. The dashboard is visible with standard controls.",
+      "negative_prompt": "blurry, unrealistic interior, poor lighting",
+      "style": "realistic",
+      "guidance_scale": 7.5,
+      "steps": 50,
+      "seed": 123456,
+      "width": 1024,
+      "height": 576,
+      "strength": 0.75
+      },
+      {
+      "timestamp_start": "00:05",
+      "timestamp_end": "00:15",
+      "prompt": "A close-up of a driver's hands adjusting the side mirrors and fastening the seatbelt inside a well-lit car interior.",
+      "negative_prompt": "cluttered background, distorted perspective",
+      "style": "cinematic",
+      "guidance_scale": 8.0,
+      "steps": 60,
+      "seed": 654321,
+      "width": 1024,
+      "height": 576,
+      "strength": 0.8
+      },
+      {
+      "timestamp_start": "15:00",
+      "timestamp_end": "00:20",
+      "prompt": "A driver's hand turning the ignition key or pressing the start button in a modern car with a digital dashboard.",
+      "negative_prompt": "low detail, unrealistic lighting, old car model",
+      "style": "hyperrealistic",
+      "guidance_scale": 9.0,
+      "steps": 70,
+      "seed": 789101,
+      "width": 1024,
+      "height": 576,
+      "strength": 0.85
+      },
+      {
+      "timestamp_start": "00:20",
+      "timestamp_end": "00:25",
+      "prompt": "A slow-motion shot of a car's foot pedals as the driver releases the brake and presses the accelerator.",
+      "negative_prompt": "blurry, cartoonish, extreme close-up",
+      "style": "cinematic",
+      "guidance_scale": 8.5,
+      "steps": 75,
+      "seed": 222333,
+      "width": 1024,
+      "height": 576,
+      "strength": 0.8
+      },
+      {
+      "timestamp_start": "00:25",
+      "timestamp_end": "00:30",
+      "prompt": "A wide-angle shot of a car moving smoothly on a suburban road, the driver confidently steering the wheel.",
+      "negative_prompt": "chaotic traffic, bad weather, motion blur",
+      "style": "realistic",
+      "guidance_scale": 7.0,
+      "steps": 50,
+      "seed": 987654,
+      "width": 1024,
+      "height": 576,
+      "strength": 0.75
+      }
+  ]
+}
         Ensure audio and visual timestamps are synchronized.
         """
     
@@ -110,7 +226,7 @@ if __name__ == "__main__":
             full_script += chunk
         
         script_json = generator._extract_json(full_script)
-        generator.save_script(script_json, "hotwheels_script.json")
+        generator.save_script(script_json, "scripts.json")
 
         feedback = input("\nProvide feedback (or type 'no' to skip refinement): ")
         if feedback.lower() != "no":
