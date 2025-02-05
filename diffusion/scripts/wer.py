@@ -168,7 +168,7 @@ class VideoScriptGenerator:
 
 # Example Usage
 if __name__ == "__main__":
-    generator = VideoScriptGenerator(api_key="AIzaSyCidprNdzUho_rbZd4ZK9RR1TO0V3WxCqY")
+    generator = VideoScriptGenerator(api_key="Your API key here")
 
     try:
         script = generator.generate_script(
