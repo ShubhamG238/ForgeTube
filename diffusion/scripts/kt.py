@@ -3,6 +3,7 @@ import re
 from typing import Dict, List, Optional, Generator
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+import accelerate
 
 class VideoScriptGenerator:
     """
@@ -15,12 +16,27 @@ class VideoScriptGenerator:
     
     def __init__(self, model_name: str = "meta-llama/Llama-3.1-8B"):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+    
+        # Load tokenizer with padding settings
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_name, 
+            padding_side='left',  # Ensure padding is on the left side
+            truncation_side='left'
+        )
+    
+        # Set pad token if not already set
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+    
+        # Load model with additional configuration
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=torch.float16 if self.device == "cuda" else torch.float32,
-            device_map="auto"
+            device_map="auto",
+            # Add pad token configuration
+            pad_token_id=self.tokenizer.pad_token_id
         )
+
         
         self.system_prompt = """You are a professional video script generator. 
         Generate JSON output strictly following this structure:
@@ -166,30 +182,46 @@ class VideoScriptGenerator:
         """
 
     def _generate_content(self, prompt: str) -> Generator[str, None, None]:
-        # Format the input with system and user messages
-        formatted_prompt = f"<s>[INST] <<SYS>>\n{self.system_prompt}\n<</SYS>>\n\n{prompt}[/INST]"
+        # Prepare input
+        input_ids = self.tokenizer(
+            prompt, 
+            return_tensors="pt", 
+            padding=True, 
+            truncation=True, 
+            max_length=2048
+        ).to(self.device)
         
-        input_ids = self.tokenizer(formatted_prompt, return_tensors="pt").to(self.device)
+        # Create a list to store generated chunks
+        generated_chunks = []
         
-        # Generate with streaming
-        streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True)
-        generation_kwargs = dict(
-            input_ids=input_ids["input_ids"],
-            max_new_tokens=2048,
-            temperature=0.7,
-            do_sample=True,
-            top_p=0.9,
-            streamer=streamer,
-        )
+        # Set up streaming
+        def generate_stream():
+            output = self.model.generate(
+                input_ids=input_ids.input_ids,
+                attention_mask=input_ids.attention_mask,
+                max_new_tokens=2048,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9,
+                streamer=TextIteratorStreamer(self.tokenizer, skip_prompt=True)
+            )
+            return output
 
-        # Start generation in a separate thread
-        thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
-        thread.start()
-
-        # Yield generated text chunks
-        for chunk in streamer:
+        # Run generation in a thread
+        generation_thread = Thread(target=generate_stream)
+        generation_thread.start()
+        
+        # Yield chunks as they are generated
+        for chunk in TextIteratorStreamer(self.tokenizer, skip_prompt=True):
             yield chunk
-    
+            generated_chunks.append(chunk)
+        
+        # Wait for thread to complete
+        generation_thread.join()
+        
+        # Return full generated text
+        return ''.join(generated_chunks)
+        
     def _extract_json(self, raw_text: str) -> Dict:
         try:
             return json.loads(raw_text)
@@ -240,7 +272,7 @@ if __name__ == "__main__":
         print("Generating Script...")
         script_chunks = generator.generate_script(
             topic="Hot Wheels: The Ultimate Collector's Guide",
-            duration=60,
+            duration=1,
             key_points=["History of Hot Wheels", "Rare models", "Future designs"]
         )
         
